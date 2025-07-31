@@ -26,4 +26,7 @@ private:
     unsigned int cols;
     float cellSize;
     bool gameOverFlag;
+    bool gameWonFlag;
+    unsigned int totalMines;  
+    unsigned int flagsUsed;    
 };

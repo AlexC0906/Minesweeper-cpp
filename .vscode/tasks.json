@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build with g++",
+			"type": "shell",
+			"command": "g++",
+			"args": [
+				"${workspaceFolder}/src/main.cpp",
+				"${workspaceFolder}/src/game.cpp",
+				"${workspaceFolder}/src/cell.cpp",
+				"-I", "D:/SFML-2.5.1/include",
+				"-L", "D:/SFML-2.5.1/lib",
+				"-lsfml-graphics", "-lsfml-window", "-lsfml-system",
+				"-o", "${workspaceFolder}/main.exe"
+			],
+			"group": "build",
+			"problemMatcher": []
+		}
+	]
+}

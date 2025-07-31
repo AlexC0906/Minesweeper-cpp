@@ -14,7 +14,7 @@ private:
     void update();
     void render();
     void initGrid();
-    void placeMines();
+    void placeMines(unsigned int safeRow, unsigned int safeCol); //Place mines on first click, excluding the first clicked cell
     void calculateAdjacents();
     void revealCell(unsigned int row, unsigned int col);
     void revealNeighbors(unsigned int row, unsigned int col);
@@ -30,4 +30,5 @@ private:
     bool gameWonFlag;
     unsigned int totalMines;  
     unsigned int flagsUsed;    
+    bool firstClick;          // track first move to ensure safety
 };

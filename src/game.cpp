@@ -3,10 +3,11 @@
 #include <ctime>
 #include <string>
 #include <iostream>
+// ...existing includes...
 
 Game::Game(unsigned int rows, unsigned int cols, float cellSize)
     : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false) {
+      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -15,9 +16,7 @@ Game::Game(unsigned int rows, unsigned int cols, float cellSize)
     if (!font.loadFromFile("ARIAL.TTF")) {
         std::cerr << "Failed to load font ARIAL.TTF" << std::endl;
     }
-    initGrid();
-    placeMines();
-    calculateAdjacents();
+    initGrid();  // set up grid; delay mine placement until first click
 }
 
 void Game::run() {
@@ -43,9 +42,15 @@ void Game::processEvents() {
                 unsigned int colIdx = mx / static_cast<int>(cellSize);
                 unsigned int rowIdx = (my - static_cast<int>(cellSize)) / static_cast<int>(cellSize);
                 if (rowIdx < rows && colIdx < cols) {
-                    if (event.mouseButton.button == sf::Mouse::Left)
+                    if (event.mouseButton.button == sf::Mouse::Left) {
+                        if (firstClick) {
+                            // Place mines excluding only this cell, then calculate adjacents
+                            placeMines(rowIdx, colIdx);
+                            calculateAdjacents();
+                            firstClick = false;
+                        }
                         revealCell(rowIdx, colIdx);
-                    else if (event.mouseButton.button == sf::Mouse::Right) {
+                    } else if (event.mouseButton.button == sf::Mouse::Right) {
                         Cell &cell = grid[rowIdx][colIdx];
                         if (cell.getState() == CellState::Hidden) {
                             cell.toggleFlag();
@@ -187,16 +192,20 @@ void Game::initGrid() {
     }
 }
 
-void Game::placeMines() {
-    // Place mines randomly based on totalMines
+// Place mines randomly, excluding the first-clicked safe cell and its neighbors
+void Game::placeMines(unsigned int safeRow, unsigned int safeCol) {
     unsigned int placed = 0;
     while (placed < totalMines) {
         unsigned int r = std::rand() % rows;
         unsigned int c = std::rand() % cols;
-        if (!grid[r][c].isMine()) {
-            grid[r][c].setMine(true);
-            placed++;
+        // skip the safe cell, its neighbors, and already mined cells
+        if (grid[r][c].isMine() ||
+            (std::abs(static_cast<int>(r) - static_cast<int>(safeRow)) <= 1 &&
+             std::abs(static_cast<int>(c) - static_cast<int>(safeCol)) <= 1)) {
+            continue;
         }
+        grid[r][c].setMine(true);
+        placed++;
     }
 }
 
@@ -237,7 +246,7 @@ void Game::revealCell(unsigned int row, unsigned int col) {
                 if (c.isMine()) c.reveal();
         return;
     }
-    // If no adjacent mines, reveal neighbors
+    // Only auto-reveal neighbors if this cell has no adjacent mines
     if (cell.getAdjacentMines() == 0) {
         revealNeighbors(row, col);
     }

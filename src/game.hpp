@@ -30,5 +30,6 @@ private:
     bool gameWonFlag;
     unsigned int totalMines;  
     unsigned int flagsUsed;    
-    bool firstClick;          // track first move to ensure safety
+    bool firstClick;          
+    unsigned int savedTime;   
 };

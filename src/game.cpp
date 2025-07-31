@@ -7,7 +7,7 @@
 
 Game::Game(unsigned int rows, unsigned int cols, float cellSize)
     : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true) {
+      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -84,6 +84,8 @@ void Game::update() {
     if (allRevealed) {
         gameOverFlag = true;
         gameWonFlag = true; // mark win for in-window message
+        // stop timer
+        savedTime = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
         std::cout << "You win!" << std::endl;
         // Reveal all mines to show win state
         for (auto& row : grid)
@@ -108,8 +110,13 @@ void Game::render() {
     }
     
     {
-        // get elapsed seconds and cap at 999
-        unsigned int secs = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
+        //get elapsed seconds and cap at 999 and freeze on game over
+        unsigned int secs;
+        if (gameOverFlag) {
+            secs = savedTime;
+        } else {
+            secs = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
+        }
         if (secs > 999) secs = 999;
         // format as three digits
         std::string timeStr = std::to_string(secs);
@@ -244,6 +251,8 @@ void Game::revealCell(unsigned int row, unsigned int col) {
         for (auto& r : grid)
             for (auto& c : r)
                 if (c.isMine()) c.reveal();
+        // stop timer
+        savedTime = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
         return;
     }
     // Only auto-reveal neighbors if this cell has no adjacent mines

@@ -21,6 +21,7 @@ private:
 
     sf::RenderWindow window;
     sf::Font font;
+    sf::Clock timer;  
     std::vector<std::vector<Cell>> grid;
     unsigned int rows;
     unsigned int cols;

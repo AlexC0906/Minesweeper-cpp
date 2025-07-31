@@ -36,19 +36,24 @@ void Game::processEvents() {
         // Handle mouse input
         if (event.type == sf::Event::MouseButtonPressed && !gameOverFlag) {
             auto mousePos = sf::Mouse::getPosition(window);
-            unsigned int colIdx = mousePos.x / static_cast<int>(cellSize);
-            unsigned int rowIdx = mousePos.y / static_cast<int>(cellSize);
-            if (rowIdx < rows && colIdx < cols) {
-                if (event.mouseButton.button == sf::Mouse::Left)
-                    revealCell(rowIdx, colIdx);
-                else if (event.mouseButton.button == sf::Mouse::Right) {
-                    Cell &cell = grid[rowIdx][colIdx];
-                    if (cell.getState() == CellState::Hidden) {
-                        cell.toggleFlag();
-                        flagsUsed++;
-                    } else if (cell.getState() == CellState::Flagged) {
-                        cell.toggleFlag();
-                        flagsUsed--;
+            int mx = mousePos.x;
+            int my = mousePos.y;
+            
+            if (mx >= 0 && mx < static_cast<int>(cols * cellSize) && my >= static_cast<int>(cellSize)) {
+                unsigned int colIdx = mx / static_cast<int>(cellSize);
+                unsigned int rowIdx = (my - static_cast<int>(cellSize)) / static_cast<int>(cellSize);
+                if (rowIdx < rows && colIdx < cols) {
+                    if (event.mouseButton.button == sf::Mouse::Left)
+                        revealCell(rowIdx, colIdx);
+                    else if (event.mouseButton.button == sf::Mouse::Right) {
+                        Cell &cell = grid[rowIdx][colIdx];
+                        if (cell.getState() == CellState::Hidden) {
+                            cell.toggleFlag();
+                            flagsUsed++;
+                        } else if (cell.getState() == CellState::Flagged) {
+                            cell.toggleFlag();
+                            flagsUsed--;
+                        }
                     }
                 }
             }
@@ -95,6 +100,26 @@ void Game::render() {
         flagText.setFillColor(sf::Color::White);
         flagText.setPosition(5.f, 5.f);
         window.draw(flagText);
+    }
+    
+    {
+        // get elapsed seconds and cap at 999
+        unsigned int secs = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
+        if (secs > 999) secs = 999;
+        // format as three digits
+        std::string timeStr = std::to_string(secs);
+        while (timeStr.length() < 3) timeStr = "0" + timeStr;
+        sf::Text timerText;
+        timerText.setFont(font);
+        timerText.setString(timeStr);
+        timerText.setCharacterSize(static_cast<unsigned int>(cellSize * 0.5f));
+        timerText.setFillColor(sf::Color::White);
+        // position at top-right with padding
+        sf::FloatRect tb = timerText.getLocalBounds();
+        float x = window.getSize().x - tb.width - 5.f - tb.left;
+        float y = 5.f;
+        timerText.setPosition(x, y);
+        window.draw(timerText);
     }
     for (unsigned int i = 0; i < rows; ++i) {
         for (unsigned int j = 0; j < cols; ++j) {

@@ -23,6 +23,7 @@ private:
     sf::Font font;
     sf::Texture flagTexture;  // texture for flag icon
     sf::Texture clockTexture; // texture for clock icon
+    sf::Texture mineTexture;  // texture for revealed mine icon
     sf::Clock timer;  
     std::vector<std::vector<Cell>> grid;
     unsigned int rows;

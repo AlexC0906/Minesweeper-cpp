@@ -25,6 +25,10 @@
     if (!clockTexture.loadFromFile("ceas_minesweeper.png")) {
         std::cerr << "Failed to load ceas_minesweeper.png" << std::endl;
     }
+    // Load mine texture for revealed mines
+    if (!mineTexture.loadFromFile("mine_minesweeper.png")) {
+        std::cerr << "Failed to load mine_minesweeper.png" << std::endl;
+    }
     initGrid();  // set up grid; delay mine placement until first click
     loadBestTime(); // load record best time
 }
@@ -314,6 +318,14 @@ void Game::render() {
                 float y = cell.getPosition().y + (cellSize - bounds.height) / 2.f - bounds.top;
                 text.setPosition(x, y);
                 window.draw(text);
+            }
+            // draw mine icon for revealed mines
+            if (cell.getState() == CellState::Revealed && cell.isMine()) {
+                sf::Sprite mineSprite(mineTexture);
+                auto mts = mineTexture.getSize();
+                mineSprite.setScale(cellSize / mts.x, cellSize / mts.y);
+                mineSprite.setPosition(cell.getPosition());
+                window.draw(mineSprite);
             }
         }
     }

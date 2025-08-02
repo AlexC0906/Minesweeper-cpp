@@ -32,4 +32,7 @@ private:
     unsigned int flagsUsed;    
     bool firstClick;          
     unsigned int savedTime;   
+    unsigned int bestTime;    
+    void loadBestTime();
+    void saveBestTime();
 };

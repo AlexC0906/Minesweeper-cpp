@@ -3,11 +3,12 @@
 #include <ctime>
 #include <string>
 #include <iostream>
-// ...existing includes...
+#include <fstream>
+
 
 Game::Game(unsigned int rows, unsigned int cols, float cellSize)
     : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0) {
+      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -17,6 +18,7 @@ Game::Game(unsigned int rows, unsigned int cols, float cellSize)
         std::cerr << "Failed to load font ARIAL.TTF" << std::endl;
     }
     initGrid();  // set up grid; delay mine placement until first click
+    loadBestTime(); // load record best time
 }
 
 void Game::run() {
@@ -86,6 +88,11 @@ void Game::update() {
         gameWonFlag = true; // mark win for in-window message
         // stop timer
         savedTime = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
+        // update best time record
+        if (bestTime == 0 || savedTime < bestTime) {
+            bestTime = savedTime;
+            saveBestTime();
+        }
         std::cout << "You win!" << std::endl;
         // Reveal all mines to show win state
         for (auto& row : grid)
@@ -181,6 +188,22 @@ void Game::render() {
         float y = (window.getSize().y - bounds.height) / 2.f - bounds.top;
         msg.setPosition(x, y);
         window.draw(msg);
+        // display best time when won
+        if (gameWonFlag) {
+            sf::Text bestText;
+            bestText.setFont(font);
+            unsigned int btime = bestTime;
+            std::string bestStr = std::to_string(btime);
+            while (bestStr.length() < 3) bestStr = "0" + bestStr;
+            bestText.setString("Best: " + bestStr);
+            bestText.setCharacterSize(static_cast<unsigned int>(cellSize * 0.5f));
+            bestText.setFillColor(sf::Color::White);
+            sf::FloatRect bb = bestText.getLocalBounds();
+            float bx = (window.getSize().x - bb.width) / 2.f - bb.left;
+            float by = msg.getPosition().y + msg.getCharacterSize() + 5.f;
+            bestText.setPosition(bx, by);
+            window.draw(bestText);
+        }
     }
     window.display();
 }
@@ -197,6 +220,21 @@ void Game::initGrid() {
         }
         grid.push_back(std::move(rowCells));
     }
+}
+
+// Load the best time from a file
+void Game::loadBestTime() {
+    std::ifstream fin("best_time.txt");
+    if (fin) {
+        unsigned int t;
+        if (fin >> t) bestTime = t;
+    }
+}
+
+// Save the best time to a file
+void Game::saveBestTime() {
+    std::ofstream fout("best_time.txt", std::ios::trunc);
+    if (fout) fout << bestTime;
 }
 
 // Place mines randomly, excluding the first-clicked safe cell and its neighbors

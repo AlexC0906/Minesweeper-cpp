@@ -33,6 +33,9 @@ private:
     bool firstClick;          
     unsigned int savedTime;   
     unsigned int bestTime;    
+    sf::Clock fadeClock;
+    bool fadeStarted;
+    float fadeDuration;
     void loadBestTime();
     void saveBestTime();
 };

@@ -6,9 +6,9 @@
 #include <fstream>
 
 
-Game::Game(unsigned int rows, unsigned int cols, float cellSize)
+    Game::Game(unsigned int rows, unsigned int cols, float cellSize)
     : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0) {
+      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0), fadeStarted(false), fadeDuration(2.f) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -46,14 +46,46 @@ void Game::processEvents() {
                 if (rowIdx < rows && colIdx < cols) {
                     if (event.mouseButton.button == sf::Mouse::Left) {
                         if (firstClick) {
-                            // Place mines excluding only this cell, then calculate adjacents
+                            // First click: place mines and compute adjacents
                             placeMines(rowIdx, colIdx);
                             calculateAdjacents();
                             firstClick = false;
+                            revealCell(rowIdx, colIdx);
+                        } else {
+                            Cell& cell = grid[rowIdx][colIdx];
+                            if (cell.getState() == CellState::Revealed && !cell.isMine() && cell.getAdjacentMines() > 0) {
+                                // Chord reveal neighbors when flags match
+                                int flagCount = 0;
+                                for (int di = -1; di <= 1; ++di) {
+                                    for (int dj = -1; dj <= 1; ++dj) {
+                                        if (di == 0 && dj == 0) continue;
+                                        int ni = static_cast<int>(rowIdx) + di;
+                                        int nj = static_cast<int>(colIdx) + dj;
+                                        if (ni >= 0 && ni < static_cast<int>(rows) && nj >= 0 && nj < static_cast<int>(cols) &&
+                                            grid[ni][nj].getState() == CellState::Flagged) {
+                                            flagCount++;
+                                        }
+                                    }
+                                }
+                                if (flagCount == static_cast<int>(cell.getAdjacentMines())) {
+                                    for (int di = -1; di <= 1; ++di) {
+                                        for (int dj = -1; dj <= 1; ++dj) {
+                                            if (di == 0 && dj == 0) continue;
+                                            int ni = static_cast<int>(rowIdx) + di;
+                                            int nj = static_cast<int>(colIdx) + dj;
+                                            if (ni >= 0 && ni < static_cast<int>(rows) && nj >= 0 && nj < static_cast<int>(cols) &&
+                                                grid[ni][nj].getState() == CellState::Hidden) {
+                                                revealCell(static_cast<unsigned int>(ni), static_cast<unsigned int>(nj));
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                revealCell(rowIdx, colIdx);
+                            }
                         }
-                        revealCell(rowIdx, colIdx);
                     } else if (event.mouseButton.button == sf::Mouse::Right) {
-                        Cell &cell = grid[rowIdx][colIdx];
+                        Cell& cell = grid[rowIdx][colIdx];
                         if (cell.getState() == CellState::Hidden) {
                             cell.toggleFlag();
                             flagsUsed++;
@@ -99,6 +131,11 @@ void Game::update() {
             for (auto& cell : row)
                 if (cell.isMine())
                     cell.reveal();
+        // start fade animation
+        if (!fadeStarted) {
+            fadeStarted = true;
+            fadeClock.restart();
+        }
     }
 }
 
@@ -174,6 +211,16 @@ void Game::render() {
                 window.draw(text);
             }
         }
+    }
+    // apply fade overlay if win fade started
+    if (fadeStarted) {
+        float elapsed = fadeClock.getElapsedTime().asSeconds();
+        float t = elapsed / fadeDuration;
+        if (t > 1.f) t = 1.f;
+        sf::RectangleShape overlay(sf::Vector2f(static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y)));
+        overlay.setPosition(0.f, 0.f);
+        overlay.setFillColor(sf::Color(0, 0, 0, static_cast<sf::Uint8>(150 * t)));
+        window.draw(overlay);
     }
     // If game is over, show message
     if (gameOverFlag) {

@@ -17,6 +17,10 @@
     if (!font.loadFromFile("ARIAL.TTF")) {
         std::cerr << "Failed to load font ARIAL.TTF" << std::endl;
     }
+    // Load flag texture for flagged cells
+    if (!flagTexture.loadFromFile("red_flag.png")) {
+        std::cerr << "Failed to load red_flag.png" << std::endl;
+    }
     initGrid();  // set up grid; delay mine placement until first click
     loadBestTime(); // load record best time
 }
@@ -34,7 +38,17 @@ void Game::processEvents() {
     while (window.pollEvent(event)) {
         if (event.type == sf::Event::Closed)
             window.close();
-        // Handle mouse input
+        // Handle retry click when game lost and after fade completion
+        if (event.type == sf::Event::MouseButtonPressed && gameOverFlag && !gameWonFlag && fadeStarted 
+            && fadeClock.getElapsedTime().asSeconds() >= fadeDuration 
+            && event.mouseButton.button == sf::Mouse::Left) {
+            auto pos = sf::Mouse::getPosition(window);
+            if (retryBounds.contains(static_cast<float>(pos.x), static_cast<float>(pos.y))) {
+                reset();
+                continue;
+            }
+        }
+        // Handle mouse input for game actions
         if (event.type == sf::Event::MouseButtonPressed && !gameOverFlag) {
             auto mousePos = sf::Mouse::getPosition(window);
             int mx = mousePos.x;
@@ -94,6 +108,13 @@ void Game::processEvents() {
                             flagsUsed--;
                         }
                     }
+                }
+            }
+        } else if (event.type == sf::Event::MouseButtonPressed) {
+            if (gameOverFlag && !gameWonFlag && event.mouseButton.button == sf::Mouse::Left) {
+                auto mousePos = sf::Mouse::getPosition(window);
+                if (retryBounds.contains(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y))) {
+                    reset();
                 }
             }
         }
@@ -183,10 +204,18 @@ void Game::render() {
             // Set color based on state
             switch (cell.getState()) {
             case CellState::Hidden:
-                cell.setFillColor(sf::Color(100, 200, 100));
+                // alternating hidden cell colors for checker pattern
+                if ((i + j) % 2 == 0)
+                    cell.setFillColor(sf::Color(170, 215, 81)); // lighter green shade
+                else
+                    cell.setFillColor(sf::Color(162, 209, 73)); // slightly darker light green shade
                 break;
             case CellState::Flagged:
-                cell.setFillColor(sf::Color::Yellow);
+                // keep hidden background for flagged
+                if ((i + j) % 2 == 0)
+                    cell.setFillColor(sf::Color(170, 215, 81));
+                else
+                    cell.setFillColor(sf::Color(162, 209, 73));
                 break;
             case CellState::Revealed:
                 if (cell.isMine())
@@ -196,13 +225,33 @@ void Game::render() {
                 break;
             }
             window.draw(cell);
+            // draw flag icon for flagged cells
+            if (cell.getState() == CellState::Flagged) {
+                sf::Sprite flagSprite(flagTexture);
+                // scale sprite to cell size
+                auto ts = flagTexture.getSize();
+                flagSprite.setScale(cellSize / ts.x, cellSize / ts.y);
+                flagSprite.setPosition(cell.getPosition());
+                window.draw(flagSprite);
+            }
             // Draw adjacent mine count for revealed non-mine cells
             if (cell.getState() == CellState::Revealed && !cell.isMine() && cell.getAdjacentMines() > 0) {
                 sf::Text text;
                 text.setFont(font);
                 text.setString(std::to_string(cell.getAdjacentMines()));
                 text.setCharacterSize(static_cast<unsigned int>(cellSize * 0.5f));
-                text.setFillColor(sf::Color::Blue);
+                //set color based on number of adjacent mines
+                switch (cell.getAdjacentMines()) {
+                case 1: text.setFillColor(sf::Color::Blue); break;
+                case 2: text.setFillColor(sf::Color(0, 128, 0)); break; 
+                case 3: text.setFillColor(sf::Color(180, 0, 0)); break; // darker red
+                case 4: text.setFillColor(sf::Color(128, 0, 128)); break;        
+                case 5: text.setFillColor(sf::Color(255, 105, 180)); break;        
+                case 6: text.setFillColor(sf::Color(0, 255, 255)); break;          
+                case 7: text.setFillColor(sf::Color::Black); break;
+                case 8: text.setFillColor(sf::Color(128, 128, 128)); break;  
+                default: text.setFillColor(sf::Color::White); break;
+                }
                 // Center text in cell
                 sf::FloatRect bounds = text.getLocalBounds();
                 float x = cell.getPosition().x + (cellSize - bounds.width) / 2.f;
@@ -250,6 +299,57 @@ void Game::render() {
             float by = msg.getPosition().y + msg.getCharacterSize() + 5.f;
             bestText.setPosition(bx, by);
             window.draw(bestText);
+        }
+        // draw Try Again button when lost, but only after fade completes
+        if (!gameWonFlag && fadeStarted && fadeClock.getElapsedTime().asSeconds() >= fadeDuration) {
+            // button label and size
+            std::string label = "Try Again";
+            sf::Text retryText;
+            retryText.setFont(font);
+            retryText.setString(label);
+            retryText.setCharacterSize(static_cast<unsigned int>(cellSize * 0.5f));
+            // compute text bounds
+            sf::FloatRect tb = retryText.getLocalBounds();
+            // padding and dimensions
+            float padX = 16.f;
+            float padY = 8.f;
+            float w = tb.width + padX * 2.f;
+            float h = tb.height + padY * 2.f;
+            float r = padY; // corner radius
+            // button origin centered horizontally, below message
+            float x0 = (window.getSize().x - w) / 2.f;
+            float y0 = msg.getPosition().y + msg.getCharacterSize() + 30.f;
+            // position text inside button
+            retryText.setPosition(x0 + padX - tb.left, y0 + padY - tb.top);
+            // center rectangle (horizontal)
+            sf::RectangleShape rectH(sf::Vector2f(w - 2*r, h));
+            rectH.setFillColor(sf::Color(50, 50, 50, 200));
+            rectH.setPosition(x0 + r, y0);
+            window.draw(rectH);
+            // center rectangle (vertical)
+            sf::RectangleShape rectV(sf::Vector2f(w, h - 2*r));
+            rectV.setFillColor(sf::Color(50, 50, 50, 200));
+            rectV.setPosition(x0, y0 + r);
+            window.draw(rectV);
+            // corner circles
+            sf::CircleShape corner(r, 50);
+            corner.setFillColor(sf::Color(50, 50, 50, 200));
+            // top-left
+            corner.setPosition(x0, y0);
+            window.draw(corner);
+            // top-right
+            corner.setPosition(x0 + w - 2*r, y0);
+            window.draw(corner);
+            // bottom-left
+            corner.setPosition(x0, y0 + h - 2*r);
+            window.draw(corner);
+            // bottom-right
+            corner.setPosition(x0 + w - 2*r, y0 + h - 2*r);
+            window.draw(corner);
+            // text
+            window.draw(retryText);
+            // store bounds for click detection
+            retryBounds = sf::FloatRect(x0, y0, w, h);
         }
     }
     window.display();
@@ -338,6 +438,11 @@ void Game::revealCell(unsigned int row, unsigned int col) {
                 if (c.isMine()) c.reveal();
         // stop timer
         savedTime = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
+        // start fade animation on loss
+        if (!fadeStarted) {
+            fadeStarted = true;
+            fadeClock.restart();
+        }
         return;
     }
     // Only auto-reveal neighbors if this cell has no adjacent mines
@@ -359,4 +464,16 @@ void Game::revealNeighbors(unsigned int row, unsigned int col) {
             }
         }
     }
+}
+// Reset the game state for a new playthrough
+void Game::reset() {
+    gameOverFlag = false;
+    gameWonFlag = false;
+    firstClick = true;
+    flagsUsed = 0;
+    savedTime = 0;
+    fadeStarted = false;
+    timer.restart();
+    // reinitialize grid
+    initGrid();
 }

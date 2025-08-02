@@ -21,6 +21,10 @@
     if (!flagTexture.loadFromFile("red_flag.png")) {
         std::cerr << "Failed to load red_flag.png" << std::endl;
     }
+    // Load clock texture for timer icon
+    if (!clockTexture.loadFromFile("ceas_minesweeper.png")) {
+        std::cerr << "Failed to load ceas_minesweeper.png" << std::endl;
+    }
     initGrid();  // set up grid; delay mine placement until first click
     loadBestTime(); // load record best time
 }
@@ -64,6 +68,15 @@ void Game::processEvents() {
                             placeMines(rowIdx, colIdx);
                             calculateAdjacents();
                             firstClick = false;
+                            // clear any flags placed before game start
+                            flagsUsed = 0;
+                            for (auto& row : grid) {
+                                for (auto& cell : row) {
+                                    if (cell.getState() == CellState::Flagged) {
+                                        cell.toggleFlag();
+                                    }
+                                }
+                            }
                             revealCell(rowIdx, colIdx);
                         } else {
                             Cell& cell = grid[rowIdx][colIdx];
@@ -162,16 +175,38 @@ void Game::update() {
 
 void Game::render() {
     window.clear();
-    // Draw remaining mines counter at top UI area
+   
+    sf::RectangleShape uiBar(sf::Vector2f(static_cast<float>(window.getSize().x), cellSize));
+    uiBar.setFillColor(sf::Color(94, 142, 60)); 
+    uiBar.setPosition(0.f, 0.f);
+    window.draw(uiBar);
+
     {
-        sf::Text flagText;
-        flagText.setFont(font);
         unsigned int remaining = (totalMines > flagsUsed ? totalMines - flagsUsed : 0);
-        flagText.setString("Mines: " + std::to_string(remaining));
-        flagText.setCharacterSize(static_cast<unsigned int>(cellSize * 0.5f));
-        flagText.setFillColor(sf::Color::White);
-        flagText.setPosition(5.f, 5.f);
-        window.draw(flagText);
+        // flag icon
+        sf::Sprite flagSprite(flagTexture);
+        float charSize = cellSize * 0.5f;
+        float iconH = charSize * 1.5f;
+        auto ts = flagTexture.getSize();
+        float scale = iconH / ts.y;
+        flagSprite.setScale(scale, scale);
+        float iconW = ts.x * scale;
+        float uiX = 5.f;
+        float y = 5.f;
+        float verticalOffset = 6.f;
+        float cy = y - (iconH - charSize) / 2.f + verticalOffset;
+        flagSprite.setPosition(uiX, cy);
+        window.draw(flagSprite);
+        sf::Text countText;
+        countText.setFont(font);
+        countText.setString(std::to_string(remaining));
+        countText.setCharacterSize(static_cast<unsigned int>(charSize));
+        countText.setFillColor(sf::Color::White);
+        sf::FloatRect bt = countText.getLocalBounds();
+        float tx = uiX + iconW + 4.f;
+        float ty = y + (charSize - bt.height) / 2.f - bt.top + verticalOffset;
+        countText.setPosition(tx, ty);
+        window.draw(countText);
     }
     
     {
@@ -195,6 +230,27 @@ void Game::render() {
         sf::FloatRect tb = timerText.getLocalBounds();
         float x = window.getSize().x - tb.width - 5.f - tb.left;
         float y = 5.f;
+        // draw clock icon left of timer
+        {
+            sf::Sprite clockSprite(clockTexture);
+            auto ts = clockTexture.getSize();
+            // set icon height relative to text and preserve aspect ratio
+            float iconH = timerText.getCharacterSize() * 1.5f;
+            float scale = iconH / ts.y;
+            clockSprite.setScale(scale, scale);
+            float iconW = ts.x * scale;
+           
+            float padding = 1.f; 
+            float cx = x - padding - iconW;
+            
+            float iconY = iconH;
+            float cy = y - (iconY - timerText.getCharacterSize()) / 2.f;
+            
+            float verticalOffset = 6.f; 
+            cy += verticalOffset;
+            clockSprite.setPosition(cx, cy);
+            window.draw(clockSprite);
+        }
         timerText.setPosition(x, y);
         window.draw(timerText);
     }
@@ -244,7 +300,7 @@ void Game::render() {
                 switch (cell.getAdjacentMines()) {
                 case 1: text.setFillColor(sf::Color::Blue); break;
                 case 2: text.setFillColor(sf::Color(0, 128, 0)); break; 
-                case 3: text.setFillColor(sf::Color(180, 0, 0)); break; // darker red
+                case 3: text.setFillColor(sf::Color(180, 0, 0)); break; 
                 case 4: text.setFillColor(sf::Color(128, 0, 128)); break;        
                 case 5: text.setFillColor(sf::Color(255, 105, 180)); break;        
                 case 6: text.setFillColor(sf::Color(0, 255, 255)); break;          

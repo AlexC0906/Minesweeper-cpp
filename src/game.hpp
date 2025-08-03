@@ -2,11 +2,12 @@
 
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <string>
 #include "cell.hpp"
 
 class Game {
 public:
-    Game(unsigned int rows, unsigned int cols, float cellSize);
+    Game(unsigned int rows, unsigned int cols, float cellSize, const std::string& bestTimeFile);
     void run();
 
 private:
@@ -35,7 +36,9 @@ private:
     unsigned int flagsUsed;    
     bool firstClick;          
     unsigned int savedTime;   
-    unsigned int bestTime;    
+    unsigned int bestTime;
+    std::string bestTimeFile; 
+    bool newRecord;          
     sf::Clock fadeClock;
     bool fadeStarted;
     float fadeDuration;

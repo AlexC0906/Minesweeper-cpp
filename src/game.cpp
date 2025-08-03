@@ -6,9 +6,9 @@
 #include <fstream>
 
 
-    Game::Game(unsigned int rows, unsigned int cols, float cellSize)
+Game::Game(unsigned int rows, unsigned int cols, float cellSize, const std::string& bestTimeFile)
     : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0), fadeStarted(false), fadeDuration(2.f) {
+      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0), fadeStarted(false), fadeDuration(2.f), bestTimeFile(bestTimeFile), newRecord(false) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -30,7 +30,7 @@
         std::cerr << "Failed to load mine_minesweeper.png" << std::endl;
     }
     initGrid();  // set up grid; delay mine placement until first click
-    loadBestTime(); // load record best time
+    loadBestTime(); // load record best time from file: bestTimeFile
 }
 
 void Game::run() {
@@ -47,7 +47,8 @@ void Game::processEvents() {
         if (event.type == sf::Event::Closed)
             window.close();
         // Handle retry click when game lost and after fade completion
-        if (event.type == sf::Event::MouseButtonPressed && gameOverFlag && !gameWonFlag && fadeStarted 
+        // Handle play/try again click after fade (for win or loss)
+        if (event.type == sf::Event::MouseButtonPressed && gameOverFlag && fadeStarted 
             && fadeClock.getElapsedTime().asSeconds() >= fadeDuration 
             && event.mouseButton.button == sf::Mouse::Left) {
             auto pos = sf::Mouse::getPosition(window);
@@ -158,8 +159,10 @@ void Game::update() {
         gameWonFlag = true; // mark win for in-window message
         // stop timer
         savedTime = static_cast<unsigned int>(timer.getElapsedTime().asSeconds());
-        // update best time record
-        if (bestTime == 0 || savedTime < bestTime) {
+        // check for new best record
+        bool isNew = (bestTime == 0 || savedTime < bestTime);
+        newRecord = isNew;
+        if (isNew) {
             bestTime = savedTime;
             saveBestTime();
         }
@@ -359,7 +362,12 @@ void Game::render() {
             unsigned int btime = bestTime;
             std::string bestStr = std::to_string(btime);
             while (bestStr.length() < 3) bestStr = "0" + bestStr;
-            bestText.setString("Best: " + bestStr);
+            // display "New best!" when record beaten, else show best time
+            if (newRecord) {
+                bestText.setString(std::string("New best: ") + bestStr);
+            } else {
+                bestText.setString(std::string("Best: ") + bestStr);
+            }
             bestText.setCharacterSize(static_cast<unsigned int>(cellSize * 0.5f));
             bestText.setFillColor(sf::Color::White);
             sf::FloatRect bb = bestText.getLocalBounds();
@@ -368,10 +376,10 @@ void Game::render() {
             bestText.setPosition(bx, by);
             window.draw(bestText);
         }
-        // draw Try Again button when lost, but only after fade completes
-        if (!gameWonFlag && fadeStarted && fadeClock.getElapsedTime().asSeconds() >= fadeDuration) {
+        // draw button after game over (Play Again on win, Try Again on loss)
+        if (fadeStarted && fadeClock.getElapsedTime().asSeconds() >= fadeDuration) {
             // button label and size
-            std::string label = "Try Again";
+            std::string label = gameWonFlag ? "Play Again" : "Try Again";
             sf::Text retryText;
             retryText.setFont(font);
             retryText.setString(label);
@@ -386,7 +394,15 @@ void Game::render() {
             float r = padY; // corner radius
             // button origin centered horizontally, below message
             float x0 = (window.getSize().x - w) / 2.f;
-            float y0 = msg.getPosition().y + msg.getCharacterSize() + 30.f;
+            float y0;
+            if (gameWonFlag) {
+                // position below best time text: msg + msg size + small gap + best text size + extra padding
+                y0 = msg.getPosition().y + msg.getCharacterSize() + 5.f
+                    + static_cast<float>(cellSize * 0.5f) + 20.f;
+            } else {
+               
+                y0 = msg.getPosition().y + msg.getCharacterSize() + 30.f;
+            }
             // position text inside button
             retryText.setPosition(x0 + padX - tb.left, y0 + padY - tb.top);
             // center rectangle (horizontal)
@@ -438,17 +454,18 @@ void Game::initGrid() {
 }
 
 // Load the best time from a file
+// Load the best time from the configured file
 void Game::loadBestTime() {
-    std::ifstream fin("best_time.txt");
+    std::ifstream fin(bestTimeFile);
     if (fin) {
         unsigned int t;
         if (fin >> t) bestTime = t;
     }
 }
 
-// Save the best time to a file
+// Save the best time to the configured file
 void Game::saveBestTime() {
-    std::ofstream fout("best_time.txt", std::ios::trunc);
+    std::ofstream fout(bestTimeFile, std::ios::trunc);
     if (fout) fout << bestTime;
 }
 

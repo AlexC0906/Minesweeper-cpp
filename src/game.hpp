@@ -46,4 +46,9 @@ private:
     void saveBestTime();
     void reset();
     sf::FloatRect retryBounds; 
+    // difficulty selection UI
+    bool selectingDifficulty;
+    sf::FloatRect diffBounds;       // bounds of difficulty button
+    sf::FloatRect easyRect, mediumRect, hardRect; // menu option bounds
+    void applyDifficulty(int choice);
 };

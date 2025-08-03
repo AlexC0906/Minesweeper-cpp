@@ -8,7 +8,7 @@
 
 Game::Game(unsigned int rows, unsigned int cols, float cellSize, const std::string& bestTimeFile)
     : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0), fadeStarted(false), fadeDuration(2.f), bestTimeFile(bestTimeFile), newRecord(false) {
+      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0), fadeStarted(false), fadeDuration(2.f), bestTimeFile(bestTimeFile), newRecord(false), selectingDifficulty(false) {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -34,6 +34,8 @@ Game::Game(unsigned int rows, unsigned int cols, float cellSize, const std::stri
 }
 
 void Game::run() {
+    // initial render to set up UI element bounds
+    render();
     while (window.isOpen()) {
         processEvents();
         update();
@@ -44,8 +46,26 @@ void Game::run() {
 void Game::processEvents() {
     sf::Event event;
     while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed)
+        if (event.type == sf::Event::Closed) {
             window.close();
+            continue;
+        }
+        // difficulty menu click handling
+        if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+            sf::Vector2f click(static_cast<float>(event.mouseButton.x), static_cast<float>(event.mouseButton.y));
+            if (selectingDifficulty) {
+                if (easyRect.contains(click)) { applyDifficulty(1); continue; }
+                if (mediumRect.contains(click)) { applyDifficulty(2); continue; }
+                if (hardRect.contains(click)) { applyDifficulty(3); continue; }
+                // clicked outside options: cancel menu
+                selectingDifficulty = false;
+                continue;
+            } else if (diffBounds.contains(click)) {
+                // open difficulty menu
+                selectingDifficulty = true;
+                continue;
+            }
+        }
         // Handle retry click when game lost and after fade completion
         // Handle play/try again click after fade (for win or loss)
         if (event.type == sf::Event::MouseButtonPressed && gameOverFlag && fadeStarted 
@@ -261,6 +281,33 @@ void Game::render() {
         timerText.setPosition(x, y);
         window.draw(timerText);
     }
+    
+    {
+        float textSize = cellSize * 0.5f;
+        float pad = 8.f;
+        
+        sf::Text diffText("Mode", font, static_cast<unsigned int>(textSize));
+        diffText.setFillColor(sf::Color::White);
+        sf::FloatRect tb = diffText.getLocalBounds();
+        float width = tb.width + pad * 2.f;
+        float height = tb.height + pad * 2.f;
+       
+        float btnX = (window.getSize().x - width) / 2.f;
+        float btnY = (cellSize - height) / 2.f;
+        
+        sf::Color btnColor(50, 50, 50, 200);
+        sf::RectangleShape modeBtn(sf::Vector2f(width, height));
+        modeBtn.setFillColor(btnColor);
+        modeBtn.setPosition(btnX, btnY);
+        window.draw(modeBtn);
+       
+        float textX = btnX + (width - tb.width) / 2.f - tb.left;
+        float textY = btnY + (height - tb.height) / 2.f - tb.top;
+        diffText.setPosition(textX, textY);
+        window.draw(diffText);
+        
+        diffBounds = sf::FloatRect(btnX, 0.f, width, cellSize);
+    }
     for (unsigned int i = 0; i < rows; ++i) {
         for (unsigned int j = 0; j < cols; ++j) {
             Cell& cell = grid[i][j];
@@ -436,6 +483,29 @@ void Game::render() {
             retryBounds = sf::FloatRect(x0, y0, w, h);
         }
     }
+    // Render difficulty selection overlay on top if active
+    if (selectingDifficulty) {
+        // darken background
+        sf::RectangleShape overlay(sf::Vector2f((float)window.getSize().x, (float)window.getSize().y));
+        overlay.setFillColor(sf::Color(0, 0, 0, 180));
+        window.draw(overlay);
+        // draw menu options
+        std::vector<std::string> opts = {"Easy", "Medium", "Hard"};
+        float baseY = window.getSize().y * 0.4f;
+        for (int i = 0; i < 3; ++i) {
+            sf::Text optText(opts[i], font, static_cast<unsigned int>(cellSize * 0.6f));
+            optText.setFillColor(sf::Color::White);
+            sf::FloatRect lb = optText.getLocalBounds();
+            float tx = (window.getSize().x - lb.width) / 2.f - lb.left;
+            float ty = baseY + i * (lb.height + 20.f) - lb.top;
+            optText.setPosition(tx, ty);
+            window.draw(optText);
+            // update bounds for click detection
+            if (i == 0) easyRect = optText.getGlobalBounds();
+            else if (i == 1) mediumRect = optText.getGlobalBounds();
+            else hardRect = optText.getGlobalBounds();
+        }
+    }
     window.display();
 }
 
@@ -561,4 +631,40 @@ void Game::reset() {
     timer.restart();
     // reinitialize grid
     initGrid();
+}
+// apply a new difficulty setting and restart game
+void Game::applyDifficulty(int choice) {
+    // map difficulty to grid size and file
+    switch (choice) {
+        case 2:
+            rows = 15; cols = 15;
+            bestTimeFile = "best_time_medium.txt";
+            break;
+        case 3:
+            rows = 19; cols = 19;
+            bestTimeFile = "best_time_hard.txt";
+            break;
+        case 1:
+        default:
+            rows = 10; cols = 10;
+            bestTimeFile = "best_time_easy.txt";
+            break;
+    }
+    // recreate window
+    window.create(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper");
+    totalMines = (rows * cols) / 6;
+    // reset state
+    gameOverFlag = false;
+    gameWonFlag = false;
+    firstClick = true;
+    flagsUsed = 0;
+    savedTime = 0;
+    bestTime = 0;
+    newRecord = false;
+    fadeStarted = false;
+    selectingDifficulty = false;
+    timer.restart();
+    fadeClock.restart();
+    initGrid();
+    loadBestTime();
 }

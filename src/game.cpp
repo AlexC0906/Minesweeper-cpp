@@ -8,8 +8,20 @@
 
 
 Game::Game(unsigned int rows, unsigned int cols, float cellSize, const std::string& bestTimeFile)
-    : window(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper"),
-      grid(), rows(rows), cols(cols), cellSize(cellSize), gameOverFlag(false), gameWonFlag(false), firstClick(true), savedTime(0), bestTime(0), fadeStarted(false), fadeDuration(2.f), bestTimeFile(bestTimeFile), newRecord(false), selectingDifficulty(false) {
+    : rows(rows)
+    , cols(cols)
+    , cellSize(cellSize)
+    , gameOverFlag(false)
+    , gameWonFlag(false)
+    , firstClick(true)
+    , savedTime(0)
+    , bestTime(0)
+    , fadeStarted(false)
+    , fadeDuration(2.f)
+    , bestTimeFile(bestTimeFile)
+    , newRecord(false)
+    , selectingDifficulty(false)
+{
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     // Initialize mine/flag counters
     totalMines = (rows * cols) / 6;
@@ -30,6 +42,22 @@ Game::Game(unsigned int rows, unsigned int cols, float cellSize, const std::stri
     if (!mineTexture.loadFromFile("mine_minesweeper.png")) {
         std::cerr << "Failed to load mine_minesweeper.png" << std::endl;
     }
+    // Load audio for flag actions
+    if (!nudgeBuffer.loadFromFile("Nudge_Sound_Effect.wav")) {
+        std::cerr << "Failed to load Nudge_Sound_Effect.wav" << std::endl;
+    }
+    nudgeSound.setBuffer(nudgeBuffer);
+    if (!popBuffer.loadFromFile("Pop.wav")) {
+        std::cerr << "Failed to load Pop.wav" << std::endl;
+    }
+    popSound.setBuffer(popBuffer);
+    // Load victory music
+    if (!victoryMusic.openFromFile("Victory_music.wav")) {
+        std::cerr << "Failed to load Victory_music.wav" << std::endl;
+    }
+    victoryMusic.setLoop(true);
+    // create window after loading assets to prevent initial blank
+    window.create(sf::VideoMode(cols * cellSize, rows * cellSize + static_cast<int>(cellSize)), "Minesweeper");
     initGrid();  // set up grid; delay mine placement until first click
     loadBestTime(); // load record best time from file: bestTimeFile
 }
@@ -142,9 +170,11 @@ void Game::processEvents() {
                         if (cell.getState() == CellState::Hidden) {
                             cell.toggleFlag();
                             flagsUsed++;
+                            nudgeSound.play();
                         } else if (cell.getState() == CellState::Flagged) {
                             cell.toggleFlag();
                             flagsUsed--;
+                            popSound.play();
                         }
                     }
                 }
@@ -193,10 +223,11 @@ void Game::update() {
             for (auto& cell : row)
                 if (cell.isMine())
                     cell.reveal();
-        // start fade animation
+        // start fade animation and play victory music
         if (!fadeStarted) {
             fadeStarted = true;
             fadeClock.restart();
+            victoryMusic.play();
         }
     }
 }
@@ -654,6 +685,8 @@ void Game::reset() {
     savedTime = 0;
     fadeStarted = false;
     timer.restart();
+    // stop victory music if playing
+    victoryMusic.stop();
     // reinitialize grid
     initGrid();
 }

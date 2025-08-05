@@ -11,7 +11,7 @@
 				"${workspaceFolder}/src/cell.cpp",
 				"-I", "D:/SFML-2.5.1/include",
 				"-L", "D:/SFML-2.5.1/lib",
-				"-lsfml-graphics", "-lsfml-window", "-lsfml-system",
+				"-lsfml-graphics", "-lsfml-window", "-lsfml-system", "-lsfml-audio",
 				"-o", "${workspaceFolder}/main.exe"
 			],
 			"group": "build",

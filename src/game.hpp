@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include "cell.hpp"
+#include <SFML/Audio.hpp>
 
 class Game {
 public:
@@ -25,6 +26,12 @@ private:
     sf::Texture flagTexture;  // texture for flag icon
     sf::Texture clockTexture; // texture for clock icon
     sf::Texture mineTexture;  // texture for revealed mine icon
+    // audio buffers and sounds for flag actions
+    sf::SoundBuffer nudgeBuffer;
+    sf::Sound nudgeSound;
+    sf::SoundBuffer popBuffer;
+    sf::Sound popSound;
+    sf::Music victoryMusic;
     sf::Clock timer;  
     std::vector<std::vector<Cell>> grid;
     unsigned int rows;

@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <cmath>
 
 
 Game::Game(unsigned int rows, unsigned int cols, float cellSize, const std::string& bestTimeFile)
@@ -295,11 +296,35 @@ void Game::render() {
         float btnX = (window.getSize().x - width) / 2.f;
         float btnY = (cellSize - height) / 2.f;
         
-        sf::Color btnColor(50, 50, 50, 200);
-        sf::RectangleShape modeBtn(sf::Vector2f(width, height));
-        modeBtn.setFillColor(btnColor);
-        modeBtn.setPosition(btnX, btnY);
-        window.draw(modeBtn);
+        //mode button
+        sf::Color btnColor = sf::Color::Black;
+        float r = pad; // corner radius
+        // horizontal center rectangle
+        sf::RectangleShape rectH(sf::Vector2f(width - 2 * r, height));
+        rectH.setFillColor(btnColor);
+        rectH.setPosition(btnX + r, btnY);
+        window.draw(rectH);
+        // vertical center rectangle
+        sf::RectangleShape rectV(sf::Vector2f(width, height - 2 * r));
+        rectV.setFillColor(btnColor);
+        rectV.setPosition(btnX, btnY + r);
+        window.draw(rectV);
+        // corner circles
+        const int cornerPoints = 20;
+        sf::CircleShape corner(r, cornerPoints);
+        corner.setFillColor(btnColor);
+        // top-left
+        corner.setPosition(btnX, btnY);
+        window.draw(corner);
+        // top-right
+        corner.setPosition(btnX + width - 2 * r, btnY);
+        window.draw(corner);
+        // bottom-left
+        corner.setPosition(btnX, btnY + height - 2 * r);
+        window.draw(corner);
+        // bottom-right
+        corner.setPosition(btnX + width - 2 * r, btnY + height - 2 * r);
+        window.draw(corner);
        
         float textX = btnX + (width - tb.width) / 2.f - tb.left;
         float textY = btnY + (height - tb.height) / 2.f - tb.top;
